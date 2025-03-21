@@ -62,3 +62,11 @@ config.json
 vendor/
 node_modules
 
+
+cloudflare_dns_records.txt
+cloudflared-tunnel.service
+dns_config_guide.txt
+tunnel_mail_config.md
+start_tunnel.sh
+verify_dns.sh
+
