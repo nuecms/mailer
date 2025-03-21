@@ -1,0 +1,30 @@
+{
+  "smtpHost": "127.0.0.1",
+  "smtpPort": 25,
+  "defaultUsername": "noreply@example.com",
+  "defaultPassword": "change-this-password",
+  
+  "forwardSMTP": true,
+  "forwardHost": "smtp.example.com",
+  "forwardPort": 587,
+  "forwardUsername": "your-email@example.com",
+  "forwardPassword": "your-smtp-password",
+  "forwardSSL": false,
+  
+  "batchSize": 20,
+  "batchDelay": 1000,
+  "enableHealthCheck": true,
+  "healthCheckPort": 8025,
+  
+  "rateLimits": {
+    "enabled": true,
+    "maxPerHour": 500,
+    "maxPerDay": 2000
+  },
+  
+  "security": {
+    "allowLocalOnly": true,
+    "logAllEmails": true,
+    "requireAuth": true
+  }
+}
