@@ -1,0 +1,27 @@
+<!-- filepath: /Users/terry/nuecms-workspace/mailer/docs/public/images/logo.svg -->
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="#2D3748" />
+  <circle cx="100" cy="100" r="85" fill="#4299E1" />
+  
+  <!-- Envelope Base -->
+  <rect x="40" y="65" width="120" height="70" rx="8" fill="white" />
+  
+  <!-- Envelope Flap (Open) -->
+  <path d="M40 73L100 105L160 73" stroke="#2D3748" stroke-width="5" stroke-linecap="round" />
+  
+  <!-- Go Gopher Silhouette -->
+  <path d="M85 85C85 85 80 90 80 95C80 100 82 105 87 105C92 105 94 100 94 95C94 90 90 85 85 85Z" fill="#5DADE2" />
+  <path d="M115 85C115 85 110 90 110 95C110 100 112 105 117 105C122 105 124 100 124 95C124 90 120 85 115 85Z" fill="#5DADE2" />
+  <path d="M100 85C92 85 85 92 85 100C85 108 92 115 100 115C108 115 115 108 115 100C115 92 108 85 100 85Z" fill="#5DADE2" />
+  
+  <!-- Mail Symbols -->
+  <path d="M70 125L60 115M130 125L140 115" stroke="#2D3748" stroke-width="4" stroke-linecap="round" />
+  
+  <!-- Text -->
+  <path d="M50 145H150" stroke="#2D3748" stroke-width="3" />
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">GO MAIL SERVER</text>
+  
+  <!-- Speed Lines -->
+  <path d="M175 85L185 85M175 100L190 100M175 115L185 115" stroke="#ECC94B" stroke-width="3" stroke-linecap="round" />
+</svg>

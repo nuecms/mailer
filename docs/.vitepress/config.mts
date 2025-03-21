@@ -3,11 +3,11 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Go Mail Server',
   description: '轻量级 SMTP 邮件发送服务',
-  base: '/mailer/',
+  base: '/',
   lastUpdated: true,
   
   head: [
-    ['link', { rel: 'icon', href: '/mailer/images/logo.png' }]
+    ['link', { rel: 'icon', href: '/images/logo.png' }]
   ],
   
   themeConfig: {

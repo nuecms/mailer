@@ -5,8 +5,8 @@ hero:
   text: 轻量级 SMTP 邮件发送服务
   tagline: 简单、高效、可靠的邮件发送解决方案
   image:
-    src: /images/logo.png
-    alt: Go Mail Server
+    src: /images/logo.svg
+    alt: Go Mail Server Logo
   actions:
     - theme: brand
       text: 快速开始

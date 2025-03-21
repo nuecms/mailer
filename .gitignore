@@ -60,3 +60,5 @@ config.json
 
 # 依赖管理
 vendor/
+node_modules
+
