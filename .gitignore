@@ -15,7 +15,7 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
 
 # Go workspace file
 go.work
@@ -24,6 +24,39 @@ go.work.sum
 # env file
 .env
 
-emails
-keys
+# Go 编译产物
+/mailer
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试文件
+*.test
+*.tmp
+*.temp
+
+# 本地配置
 config.json
+/keys/
+
+# 邮件存储
+/emails/
+
+# 日志文件
+*.log
+
+# VitePress 生成的文件
+/docs/.vitepress/dist/
+/docs/.vitepress/cache/
+/docs/node_modules/
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 依赖管理
+vendor/
