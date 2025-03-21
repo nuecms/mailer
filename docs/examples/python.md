@@ -1,6 +1,6 @@
-# Python 示例
+# Python 使用示例
 
-本文介绍如何使用 Python 发送邮件到 Go Mail Server。
+本文档提供了使用 Python 连接 Go Mail Server 发送邮件的示例代码。
 
 ## 基本邮件发送
 

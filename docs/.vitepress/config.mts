@@ -7,11 +7,11 @@ export default defineConfig({
   lastUpdated: true,
   
   head: [
-    ['link', { rel: 'icon', href: '/images/logo.png' }]
+    ['link', { rel: 'icon', href: '/images/logo.svg' }]
   ],
   
   themeConfig: {
-    logo: '/images/logo.png',
+    logo: '/images/logo.svg',
     
     nav: [
       { text: '首页', link: '/' },

@@ -203,7 +203,7 @@ go build -o mailserver
 
 1. **设置 Cloudflare Tunnel**
 
-   参考我们的 [Cloudflare Tunnel 设置指南](./cloudflare_tunnel_setup.md) 进行详细配置。
+   参考我们的 [Cloudflare Tunnel 设置指南](/guides/cloudflare-tunnel) 进行详细配置。
 
 2. **配置邮件服务**
 
