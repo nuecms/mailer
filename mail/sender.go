@@ -18,6 +18,190 @@ type MailJob struct {
 	ID   string
 }
 
+// ProcessMail 处理邮件发送，按优先级尝试不同方式
+// 1. 直接外发(如果配置了直接外发且配置有效)
+// 2. SMTP转发(如果配置了SMTP转发且配置有效)
+// 3. 本地存储(作为最后的保底方案)
+func ProcessMail(cfg *config.Config, from string, to []string, data []byte) error {
+	// 如果启用了DKIM，对邮件进行签名
+	if cfg.DKIM != nil && cfg.DKIM.Enabled {
+		signedData, err := SignWithDKIM(cfg, data)
+		if err != nil {
+			log.Printf("DKIM签名失败: %v, 将使用未签名邮件继续", err)
+		} else {
+			data = signedData
+			log.Printf("邮件已成功添加DKIM签名")
+		}
+	}
+
+	// 尝试直接外发
+	if cfg.DirectDelivery != nil && cfg.DirectDelivery.Enabled {
+		log.Printf("尝试直接发送邮件到目标服务器")
+		err := SendMailDirect(cfg, from, to, data)
+		if err == nil {
+			log.Printf("直接发送邮件成功")
+			return nil
+		}
+		log.Printf("直接发送邮件失败: %v, 将尝试SMTP转发", err)
+	}
+
+	// 尝试SMTP转发
+	if cfg.ForwardSMTP && cfg.ForwardHost != "" {
+		log.Printf("尝试通过SMTP转发邮件")
+		err := ForwardMail(cfg, from, to, data)
+		if err == nil {
+			log.Printf("SMTP转发邮件成功")
+			return nil
+		}
+		log.Printf("SMTP转发邮件失败: %v, 将保存到本地", err)
+	}
+
+	// 最后保存到本地
+	log.Printf("保存邮件到本地文件系统")
+	return SaveMailLocally(from, to, data)
+}
+
+// SendMailDirect 尝试直接将邮件发送到目标邮件服务器
+func SendMailDirect(cfg *config.Config, from string, to []string, data []byte) error {
+	if cfg.DirectDelivery == nil || !cfg.DirectDelivery.Enabled {
+		return fmt.Errorf("直接发送功能未启用")
+	}
+
+	log.Printf("正在尝试直接发送邮件到收件人服务器")
+
+	// 按域名分组收件人
+	domainRecipients := make(map[string][]string)
+	for _, recipient := range to {
+		domain := utils.ExtractDomain(recipient)
+		if domain == "" {
+			log.Printf("无法从 %s 提取域名，跳过", recipient)
+			continue
+		}
+		domainRecipients[domain] = append(domainRecipients[domain], recipient)
+	}
+
+	// 为每个域名解析MX记录并发送
+	successCount := 0
+	for domain, recipients := range domainRecipients {
+		mxRecords, err := utils.LookupMX(domain)
+		if err != nil || len(mxRecords) == 0 {
+			log.Printf("无法解析域名 %s 的MX记录: %v, 跳过", domain, err)
+			continue
+		}
+
+		// 尝试连接到每个MX服务器，直到成功
+		delivered := false
+		for _, mx := range mxRecords {
+			host := mx.Host
+			// 确保主机名没有尾随的点
+			if host[len(host)-1] == '.' {
+				host = host[:len(host)-1]
+			}
+			port := 25 // 标准SMTP端口
+
+			addr := fmt.Sprintf("%s:%d", host, port)
+			log.Printf("尝试连接到MX服务器: %s 发送给 %v", addr, utils.SummarizeRecipients(recipients))
+
+			// 尝试发送
+			err := trySendMailToServer(cfg, from, recipients, data, host, port)
+			if err == nil {
+				log.Printf("成功直接发送邮件到 %s 的MX服务器", domain)
+				successCount += len(recipients)
+				delivered = true
+				break
+			}
+			log.Printf("发送到 %s 的MX服务器失败: %v, 尝试下一个", host, err)
+		}
+
+		if !delivered {
+			log.Printf("无法发送到 %s 的任何MX服务器", domain)
+		}
+	}
+
+	// 如果部分成功，部分失败，视为整体成功
+	if successCount > 0 {
+		if successCount < len(to) {
+			log.Printf("部分直接发送成功: %d/%d 收件人", successCount, len(to))
+		}
+		return nil
+	}
+
+	return fmt.Errorf("所有直接发送尝试均失败")
+}
+
+// trySendMailToServer 尝试将邮件直接发送到指定的邮件服务器
+func trySendMailToServer(cfg *config.Config, from string, to []string, data []byte, host string, port int) error {
+	// 创建 SMTP 客户端连接
+	addr := fmt.Sprintf("%s:%d", host, port)
+	client, err := smtp.Dial(addr)
+	if (err != nil) {
+		return fmt.Errorf("无法连接到服务器: %v", err)
+	}
+	defer client.Close()
+
+	// 如果配置了EHLO域名，使用它；否则使用发件人域名
+	ehlo := utils.ExtractDomain(from)
+	if cfg.DirectDelivery.EhloDomain != "" {
+		ehlo = cfg.DirectDelivery.EhloDomain
+	}
+
+	if err := client.Hello(ehlo); err != nil {
+		return fmt.Errorf("EHLO 失败: %v", err)
+	}
+
+	// 如果服务器支持，尝试启用TLS
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		tlsConfig := &tls.Config{
+			ServerName:         host,
+			InsecureSkipVerify: cfg.DirectDelivery.InsecureSkipVerify,
+		}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			log.Printf("启用 TLS 失败: %v, 继续不使用TLS", err)
+		}
+	}
+
+	// 设置发件人
+	if err := client.Mail(from); err != nil {
+		return fmt.Errorf("设置发件人失败: %v", err)
+	}
+
+	// 设置收件人
+	recipientFailCount := 0
+	for _, recipient := range to {
+		if err := client.Rcpt(recipient); err != nil {
+			log.Printf("设置收件人 %s 失败: %v", recipient, err)
+			recipientFailCount++
+		}
+	}
+
+	// 如果所有收件人都失败，则视为整体失败
+	if recipientFailCount == len(to) {
+		return fmt.Errorf("所有收件人设置失败")
+	}
+
+	// 发送数据
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("准备发送数据失败: %v", err)
+	}
+
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("写入邮件数据失败: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("完成数据发送失败: %v", err)
+	}
+
+	// 关闭连接
+	if err := client.Quit(); err != nil {
+		log.Printf("关闭连接失败: %v", err)
+		// 不返回错误，因为邮件已经发送
+	}
+
+	return nil
+}
+
 // ForwardMail 实现转发邮件到配置的SMTP服务器
 func ForwardMail(cfg *config.Config, from string, to []string, data []byte) error {
 	// 添加批处理功能，每批最多发送20个收件人
@@ -220,4 +404,26 @@ func tryToSendMail(forwardHost string, forwardPort int, forwardUsername, forward
 	}
 
 	return nil
+}
+
+// SignWithDKIM 使用DKIM对邮件进行签名
+func SignWithDKIM(cfg *config.Config, data []byte) ([]byte, error) {
+	if cfg.DKIM == nil || !cfg.DKIM.Enabled {
+		return nil, fmt.Errorf("DKIM未启用")
+	}
+
+	// 创建DKIM签名器
+	signer, err := NewDKIMSigner(DKIMOptions{
+		Domain:            cfg.DKIM.Domain,
+		Selector:          cfg.DKIM.Selector,
+		PrivateKeyPath:    cfg.DKIM.PrivateKeyPath,
+		HeadersToSign:     cfg.DKIM.HeadersToSign,
+		SignatureExpireIn: cfg.DKIM.SignatureExpiry,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("创建DKIM签名器失败: %v", err)
+	}
+
+	// 对邮件进行签名
+	return signer.SignMessage(data)
 }

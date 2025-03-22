@@ -28,6 +28,7 @@ export default defineConfig({
           items: [
             { text: '部署指南', link: '/guides/deployment' },
             { text: '配置详解', link: '/guides/configuration' },
+            { text: '直接发送模式', link: '/guides/direct-delivery' },
             { text: '高级功能', link: '/guides/advanced-features' },
             { text: 'DKIM 设置', link: '/guides/dkim-setup' },
             { text: 'Cloudflare Tunnel', link: '/guides/cloudflare-tunnel' },

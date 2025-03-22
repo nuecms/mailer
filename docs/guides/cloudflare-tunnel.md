@@ -81,11 +81,11 @@ cloudflared tunnel create mailer-tunnel
 
 ### 3. 创建配置文件
 
-创建 `~/.cloudflared/config.yml` 文件：
+创建 `~/.cloudflared/config-mailer-tunnel.yml` 文件：
 
 ```yaml
 tunnel: <您的Tunnel ID>
-credentials-file: /root/.cloudflared/<您的Tunnel ID>.json
+credentials-file: ~/.cloudflared/<您的Tunnel ID>.json
 
 ingress:
   - hostname: mail.yourdomain.com
@@ -111,15 +111,25 @@ cloudflared tunnel route dns mailer-tunnel smtp.yourdomain.com
   "security": {
     "allowLocalOnly": false,
     "requireAuth": true
+  },
+  "dkim": {
+    "enabled": true,
+    "domain": "yourdomain.com",
+    "selector": "mail",
+    "privateKeyPath": "keys/yourdomain.com/mail.private"
   }
 }
 ```
 
 ### 6. 启动 Tunnel
 
+使用正确的命令格式启动隧道：
+
 ```bash
-cloudflared tunnel run mailer-tunnel
+cloudflared tunnel --config ~/.cloudflared/config-mailer-tunnel.yml run mailer-tunnel
 ```
+
+> **注意**: 请注意命令格式，`--config` 参数必须放在 `tunnel` 之后、`run` 之前。
 
 ## 使用 systemd 设置服务
 
@@ -158,4 +168,45 @@ sudo systemctl status cloudflared-tunnel
 
 为了确保邮件服务正常工作，您需要配置几个重要的 DNS 记录：
 
-### MX 记录
+### A 记录 (重要)
+
+根据 RFC 2181 和电子邮件协议规范，必须为您的域名和子域名设置 A 记录：
+
+## 常见问题排查
+
+### Tunnel 命令错误
+
+如果出现 `flag provided but not defined: -config` 错误，请检查命令格式：
+
+✅ 正确的命令格式：
+```bash
+cloudflared tunnel --config ~/.cloudflared/config-mailer-tunnel.yml run mailer-tunnel
+```
+
+❌ 错误的命令格式：
+```bash
+cloudflared tunnel run --config ~/.cloudflared/config-mailer-tunnel.yml mailer-tunnel
+```
+
+### 无法通过 Tunnel 发送邮件
+
+1. 确认 Tunnel 状态正常：
+   ```bash
+   cloudflared tunnel info mailer-tunnel
+   ```
+
+2. 确认 DNS 记录已正确设置：
+   ```bash
+   dig smtp.yourdomain.com
+   ```
+
+3. 确认 Go Mail Server 配置已更新：
+   - `allowLocalOnly` 必须设置为 `false`
+   - `requireAuth` 建议设置为 `true`
+
+4. 检查网络连接问题：
+   - 测试是否可以通过命令行连接 SMTP 服务：
+     ```bash
+     telnet smtp.yourdomain.com 25
+     ```
+````

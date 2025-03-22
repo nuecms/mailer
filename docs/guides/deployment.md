@@ -10,8 +10,6 @@
   - [部署前准备](#部署前准备)
     - [系统要求](#系统要求)
     - [前置检查](#前置检查)
-  - [基本部署方式](#基本部署方式)
-    - [本地开发环境](#本地开发环境)
     - [服务器直接部署](#服务器直接部署)
     - [Docker 容器部署](#docker-容器部署)
     - [Cloudflare Tunnel 部署](#cloudflare-tunnel-部署)
@@ -29,17 +27,21 @@
     - [常见问题](#常见问题)
     - [日志解读](#日志解读)
   - [生产环境最佳实践](#生产环境最佳实践)
+  - [发送优先级和处理流程](#发送优先级和处理流程)
 
 ## 简介
 
 Go Mail Server 是一个轻量级的邮件发送服务，专为内部应用程序提供 SMTP 服务。它的主要特点包括：
 
 - **仅本地连接**：默认只接受来自本地的连接，增强安全性
+- **直接发送**：支持直接发送邮件到目标邮件服务器
 - **邮件转发**：可将邮件转发至外部 SMTP 服务器（如 Gmail、阿里云等）
 - **批量处理**：支持批量邮件发送，自动分批处理大量收件人
 - **异步处理**：后台处理邮件发送，提高响应速度
 - **故障恢复**：自动保存失败邮件，定期重试
 - **监控支持**：提供健康检查和指标接口
+
+> **重要说明**：Go Mail Server 专为**发送**邮件而设计，不支持接收外部电子邮件。它是一个 SMTP 中继/代理服务，而非完整的邮件服务器。如果您需要接收邮件的功能，请考虑使用 Postfix、Exim、Exchange 等专用邮件服务器。
 
 ## 部署前准备
 
@@ -56,8 +58,6 @@ Go Mail Server 是一个轻量级的邮件发送服务，专为内部应用程�
 2. **端口检查**：确保端口未被占用（默认使用 25 端口和 8025 端口）
    ```bash
    # 检查端口是否被占用
-   sudo netstat -tuln | grep -E ':(25|8025)'
-   ```
 3. **防火墙配置**：如果需要远程访问，确保防火墙允许相关端口
 
 ## 基本部署方式
@@ -239,6 +239,15 @@ go build -o mailserver
   "defaultUsername": "user",      // SMTP 认证用户名
   "defaultPassword": "password",  // SMTP 认证密码
   
+  // 直接发送配置
+  "directDelivery": {
+    "enabled": true,              // 是否启用直接发送模式
+    "ehloDomain": "example.com",  // 用于EHLO的域名
+    "insecureSkipVerify": false,  // 是否跳过TLS验证（不推荐）
+    "retryCount": 3               // 发送失败时的重试次数
+  },
+  
+  // SMTP转发配置
   "forwardSMTP": true,            // 是否启用转发
   "forwardHost": "smtp.gmail.com", // 转发 SMTP 服务器地址
   "forwardPort": 587,             // 转发 SMTP 服务器端口
@@ -246,6 +255,15 @@ go build -o mailserver
   "forwardPassword": "app-password",   // 转发 SMTP 密码
   "forwardSSL": false,            // 是否使用 SSL 连接转发服务器
   
+  // DKIM配置
+  "dkim": {
+    "enabled": true,              // 是否启用DKIM签名
+    "domain": "example.com",      // DKIM域名
+    "selector": "mail",           // DKIM选择器
+    "privateKeyPath": "keys/example.com/mail.private" // 私钥路径
+  },
+  
+  // 其他配置
   "batchSize": 20,                // 每批发送的最大收件人数
   "batchDelay": 1000,             // 批次间延迟（毫秒）
   "enableHealthCheck": true,      // 是否启用健康检查
@@ -492,3 +510,23 @@ curl http://localhost:8025/metrics
    - 合理设置 `batchSize` 和 `batchDelay`
    - 监控磁盘空间，避免空间耗尽
    - 定期处理 `emails/failed` 目录中的失败邮件
+
+## 发送优先级和处理流程
+
+Go Mail Server 在处理邮件发送时，按照以下优先级尝试不同的发送方式：
+
+1. **直接发送**：首先尝试直接将邮件发送到收件人的邮件服务器（如果已配置并启用直接发送模式）
+   - 通过MX记录查找收件人域名的邮件服务器
+   - 直接连接并发送邮件
+
+2. **SMTP转发**：如果直接发送失败或未配置，则尝试通过配置的SMTP服务器转发邮件
+   - 连接到配置的SMTP服务器（如Gmail、阿里云等）
+   - 使用配置的凭据认证
+   - 转发邮件
+
+3. **本地存储**：如果前两种方式均失败，将邮件保存在本地文件系统
+   - 邮件保存在`emails`目录
+   - 失败的邮件保存在`emails/failed`目录
+   - 系统会定期尝试重新发送失败的邮件
+
+这种多级处理方式确保了更高的邮件送达率和系统可靠性。

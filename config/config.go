@@ -22,6 +22,9 @@ type Config struct {
 	ForwardPassword string `json:"forwardPassword"`
 	ForwardSSL      bool   `json:"forwardSSL"`
 
+	// 直接发送配置
+	DirectDelivery *DirectDeliveryConfig `json:"directDelivery"`
+
 	// 新增配置选项
 	BatchSize         int  `json:"batchSize"`
 	BatchDelay        int  `json:"batchDelay"`
@@ -39,6 +42,27 @@ type Config struct {
 		LogAllEmails   bool `json:"logAllEmails"`
 		RequireAuth    bool `json:"requireAuth"`
 	} `json:"security"`
+
+	// DKIM 配置
+	DKIM *DKIMConfig `json:"dkim"`
+}
+
+// DKIMConfig 存储DKIM签名配置
+type DKIMConfig struct {
+	Enabled         bool     `json:"enabled"`           // 是否启用DKIM签名
+	Domain          string   `json:"domain"`            // DKIM域名，通常是发件人的域名
+	Selector        string   `json:"selector"`          // DKIM选择器
+	PrivateKeyPath  string   `json:"privateKeyPath"`    // DKIM私钥路径
+	HeadersToSign   []string `json:"headersToSign"`     // 要签名的头部字段
+	SignatureExpiry int64    `json:"signatureExpiry"`   // 签名过期时间（秒）
+}
+
+// DirectDeliveryConfig 存储直接发送邮件的配置
+type DirectDeliveryConfig struct {
+	Enabled            bool   `json:"enabled"`            // 是否启用直接发送
+	EhloDomain         string `json:"ehloDomain"`         // 用于EHLO的域名
+	InsecureSkipVerify bool   `json:"insecureSkipVerify"` // 是否跳过TLS验证
+	RetryCount         int    `json:"retryCount"`         // 重试次数
 }
 
 // Load 从指定路径加载配置
@@ -85,6 +109,69 @@ func CheckForwardingConfig(config *Config) {
 	}
 
 	log.Printf("转发配置检查完成: 将使用 %s:%d 发送邮件", config.ForwardHost, config.ForwardPort)
+}
+
+// CheckAllConfig 检查所有配置
+func CheckAllConfig(config *Config) {
+	CheckForwardingConfig(config)
+	CheckDirectDeliveryConfig(config)
+	CheckDKIMConfig(config)
+}
+
+// CheckDirectDeliveryConfig 检查直接发送设置
+func CheckDirectDeliveryConfig(config *Config) {
+	if config.DirectDelivery != nil && config.DirectDelivery.Enabled {
+		log.Printf("直接发送模式已启用，将尝试直接发送邮件到目标服务器")
+		
+		if config.DirectDelivery.EhloDomain != "" {
+			log.Printf("将使用 %s 作为EHLO域名", config.DirectDelivery.EhloDomain)
+		}
+		
+		if config.DirectDelivery.InsecureSkipVerify {
+			log.Printf("警告: TLS验证已禁用，这可能降低安全性")
+		}
+		
+		if config.DirectDelivery.RetryCount <= 0 {
+			config.DirectDelivery.RetryCount = 3
+			log.Printf("设置默认重试次数为 %d", config.DirectDelivery.RetryCount)
+		}
+	}
+}
+
+// CheckDKIMConfig 检查DKIM配置
+func CheckDKIMConfig(config *Config) {
+	if config.DKIM == nil || !config.DKIM.Enabled {
+		return // DKIM 未启用，跳过
+	}
+
+	log.Printf("DKIM签名已启用")
+	
+	if config.DKIM.Domain == "" {
+		log.Printf("警告: DKIM域名未设置，将使用默认用户名域名")
+		if strings.Contains(config.DefaultUsername, "@") {
+			parts := strings.Split(config.DefaultUsername, "@")
+			config.DKIM.Domain = parts[1]
+			log.Printf("设置DKIM域名为: %s", config.DKIM.Domain)
+		} else {
+			log.Printf("警告: 无法确定DKIM域名，DKIM签名可能无法正常工作")
+		}
+	}
+	
+	if config.DKIM.Selector == "" {
+		config.DKIM.Selector = "mail" // 默认选择器
+		log.Printf("DKIM选择器未设置，使用默认值: %s", config.DKIM.Selector)
+	}
+	
+	if config.DKIM.PrivateKeyPath == "" {
+		config.DKIM.PrivateKeyPath = fmt.Sprintf("keys/%s/%s.private", config.DKIM.Domain, config.DKIM.Selector)
+		log.Printf("DKIM私钥路径未设置，使用默认路径: %s", config.DKIM.PrivateKeyPath)
+	}
+	
+	// 检查私钥文件是否存在
+	if _, err := os.Stat(config.DKIM.PrivateKeyPath); os.IsNotExist(err) {
+		log.Printf("警告: DKIM私钥文件不存在: %s", config.DKIM.PrivateKeyPath)
+		log.Printf("您可以使用 setup_tunnel.sh 脚本生成DKIM密钥，或者手动创建密钥")
+	}
 }
 
 // MaskPassword 隐藏密码，只显示前两位和后两位

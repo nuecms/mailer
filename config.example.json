@@ -4,12 +4,28 @@
   "defaultUsername": "noreply@example.com",
   "defaultPassword": "change-this-password",
   
+  "directDelivery": {
+    "enabled": true,
+    "ehloDomain": "example.com",
+    "insecureSkipVerify": false,
+    "retryCount": 3
+  },
+  
   "forwardSMTP": true,
   "forwardHost": "smtp.example.com",
   "forwardPort": 587,
   "forwardUsername": "your-email@example.com",
   "forwardPassword": "your-smtp-password",
   "forwardSSL": false,
+  
+  "dkim": {
+    "enabled": true,
+    "domain": "example.com",
+    "selector": "mail",
+    "privateKeyPath": "keys/example.com/mail.private",
+    "headersToSign": ["From", "To", "Subject", "Date", "Message-ID"],
+    "signatureExpiry": 604800
+  },
   
   "batchSize": 20,
   "batchDelay": 1000,

@@ -93,3 +93,17 @@ func CountFilesInDir(dir string) (int, error) {
 
 	return len(files), nil
 }
+
+// ExtractDomain 从电子邮件地址中提取域名部分
+func ExtractDomain(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[1]
+}
+
+// LookupMX 查找域名的MX记录
+func LookupMX(domain string) ([]*net.MX, error) {
+	return net.LookupMX(domain)
+}

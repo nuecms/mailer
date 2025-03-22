@@ -24,8 +24,8 @@ func main() {
 		log.Fatalf("无法加载配置: %v", err)
 	}
 
-	// 检查转发设置
-	config.CheckForwardingConfig(cfg)
+	// 检查配置
+	config.CheckAllConfig(cfg)
 
 	// 创建指标收集器
 	metrics := monitoring.NewMetrics()
@@ -60,12 +60,8 @@ func processMailQueue(workerID int, cfg *config.Config, metrics *monitoring.Metr
 		log.Printf("[%s] 工作协程 #%d 处理邮件: 从 %s 到 %s",
 			job.ID, workerID, job.From, utils.SummarizeRecipients(job.To))
 
-		var err error
-		if cfg.ForwardSMTP && cfg.ForwardHost != "" {
-			err = mail.ForwardMail(cfg, job.From, job.To, job.Data)
-		} else {
-			err = mail.SaveMailLocally(job.From, job.To, job.Data)
-		}
+		// 使用新的统一处理函数来处理邮件，按优先级尝试不同发送方式
+		err := mail.ProcessMail(cfg, job.From, job.To, job.Data)
 
 		if err != nil {
 			log.Printf("[%s] 邮件处理失败: %v", job.ID, err)

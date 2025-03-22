@@ -8,6 +8,7 @@ Go Mail Server 是一个轻量级 SMTP 服务器，专为内部应用程序提�
 ## 功能特点
 
 - **仅本地连接**：默认只接受来自本地的连接，增强安全性
+- **直接发送**：支持直接发送邮件到收件人邮件服务器，无需第三方SMTP
 - **邮件转发**：将邮件转发至外部 SMTP 服务器（如 Gmail、阿里云等）
 - **批量处理**：支持批量邮件发送，自动分批处理大量收件人
 - **异步处理**：后台处理邮件发送，提高响应速度
@@ -65,12 +66,26 @@ docker run -d --name mailer \
   "defaultUsername": "noreply@example.com",
   "defaultPassword": "your-strong-password",
   
+  "directDelivery": {
+    "enabled": true,
+    "ehloDomain": "example.com",
+    "insecureSkipVerify": false,
+    "retryCount": 3
+  },
+  
   "forwardSMTP": true,
   "forwardHost": "smtp.gmail.com",
   "forwardPort": 587,
   "forwardUsername": "your-email@gmail.com",
   "forwardPassword": "your-app-password",
   "forwardSSL": false,
+  
+  "dkim": {
+    "enabled": true,
+    "domain": "example.com",
+    "selector": "mail",
+    "privateKeyPath": "keys/example.com/mail.private"
+  },
   
   "batchSize": 20,
   "batchDelay": 1000,
@@ -162,18 +177,20 @@ Go Mail Server 默认只接受本地连接，若需要远程访问，我们推�
 ./setup_tunnel.sh
 ```
 
-详细步骤请参考[Cloudflare Tunnel 部署指南](https://nuecms.github.io/mailer/guides/cloudflare-tunnel.html)。
+详细步骤请参考[Cloudflare Tunnel 部署指南](https://mailer.nuecms.com/guides/cloudflare-tunnel.html)。
 
 ## 文档
 
-完整文档请访问我们的[在线文档站点](https://nuecms.github.io/mailer/)，其中包含：
+完整文档请访问我们的[在线文档站点](https://mailer.nuecms.com/)，其中包含：
 
-- [部署指南](https://nuecms.github.io/mailer/guides/deployment.html)
-- [配置详解](https://nuecms.github.io/mailer/guides/configuration.html)
-- [高级功能](https://nuecms.github.io/mailer/guides/advanced-features.html)
-- [DKIM 配置](https://nuecms.github.io/mailer/guides/dkim-setup.html)
-- [性能优化](https://nuecms.github.io/mailer/guides/optimization.html)
-- [故障排查](https://nuecms.github.io/mailer/guides/troubleshooting.html)
+- [部署指南](https://mailer.nuecms.com/guides/deployment.html)
+- [直接发送模式](https://mailer.nuecms.com/guides/direct-delivery.html)
+- [配置详解](https://mailer.nuecms.com/guides/configuration.html)
+- [高级功能](https://mailer.nuecms.com/guides/advanced-features.html)
+- [DKIM 配置](https://mailer.nuecms.com/guides/dkim-setup.html)
+- [Cloudflare Tunnel](https://mailer.nuecms.com/guides/cloudflare-tunnel.html)
+- [性能优化](https://mailer.nuecms.com/guides/optimization.html)
+- [故障排查](https://mailer.nuecms.com/guides/troubleshooting.html)
 
 ## 监控与维护
 

@@ -203,7 +203,7 @@ After=network.target
 [Service]
 Type=simple
 User=$(whoami)
-ExecStart=/usr/local/bin/cloudflared tunnel run --config ~/.cloudflared/config-$TUNNEL_NAME.yml $TUNNEL_NAME
+ExecStart=/usr/local/bin/cloudflared tunnel --config ~/.cloudflared/config-$TUNNEL_NAME.yml run $TUNNEL_NAME
 Restart=on-failure
 RestartSec=5
 StartLimitInterval=60s
@@ -224,7 +224,34 @@ echo "sudo systemctl start cloudflared-tunnel"
 cat > start_tunnel.sh << EOF
 #!/bin/bash
 # 启动 Cloudflare Tunnel
-cloudflared tunnel run --config ~/.cloudflared/config-$TUNNEL_NAME.yml $TUNNEL_NAME
+
+# 设置颜色输出
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+TUNNEL_NAME="$TUNNEL_NAME"
+CONFIG_PATH="\$HOME/.cloudflared/config-$TUNNEL_NAME.yml"
+
+echo -e "\${GREEN}启动 Cloudflare Tunnel: \${TUNNEL_NAME}\${NC}"
+echo -e "使用配置文件: \${CONFIG_PATH}"
+
+# 正确的命令格式: cloudflared tunnel --config <配置文件> run <隧道名称>
+cloudflared tunnel --config "\${CONFIG_PATH}" run "\${TUNNEL_NAME}"
+
+# 检查是否启动成功
+if [ \$? -ne 0 ]; then
+    echo -e "\${RED}Tunnel 启动失败，请检查错误信息\${NC}"
+    echo -e "\${YELLOW}请检查以下几点:\${NC}"
+    echo "1. 配置文件路径是否正确"
+    echo "2. 是否已登录 Cloudflare" 
+    echo "3. 隧道名称是否正确"
+    echo
+    echo -e "\${YELLOW}可以尝试直接使用隧道ID运行:\${NC}"
+    echo "cloudflared tunnel --config \${CONFIG_PATH} run $TUNNEL_ID"
+    exit 1
+fi
 EOF
 chmod +x start_tunnel.sh
 
@@ -302,6 +329,11 @@ cat > tunnel_mail_config.md << EOF
    ./start_tunnel.sh
    \`\`\`
 
+   或手动运行:
+   \`\`\`
+   cloudflared tunnel --config ~/.cloudflared/config-$TUNNEL_NAME.yml run $TUNNEL_NAME
+   \`\`\`
+
    启动 Go Mail Server:
    \`\`\`
    ./mailer -config config.json
@@ -331,25 +363,33 @@ cat > tunnel_mail_config.md << EOF
 2. 确认 Go Mail Server 正在运行
 3. 确认所有 DNS 记录已正确配置
 4. 查看 Go Mail Server 日志中的错误信息
+
+### 常见 Tunnel 问题
+
+1. **错误: "flag provided but not defined: -config"**:
+   - 正确的命令格式是 \`cloudflared tunnel --config <配置文件> run <隧道名称>\`
+   - 而不是 \`cloudflared tunnel run --config <配置文件> <隧道名称>\`
+
+2. **无法连接到 Tunnel**:
+   - 确保 Cloudflare 账户已正确授权: \`cloudflared login\`
+   - 检查隧道配置文件是否正确
+
+3. **DNS 记录未生效**:
+   - DNS 记录可能需要时间传播（通常几分钟到几小时）
+   - 使用 \`./verify_dns.sh\` 检查记录是否正确设置
 EOF
 
-echo -e "${GREEN}===== 配置完成 =====${NC}"
-echo -e "${YELLOW}您的服务现在可以通过以下地址访问:${NC}"
-echo "SMTP 服务: ${SMTP_PREFIX}.${DOMAIN}"
-echo "管理界面: http://${MAIL_PREFIX}.${DOMAIN}"
-echo 
-echo -e "${GREEN}生成的 DKIM 密钥:${NC}"
-echo "私钥路径: $PRIVATE_KEY"
-echo "选择器: $SELECTOR"
-echo 
 echo -e "${YELLOW}是否立即启动 Tunnel? [y/N]${NC}"
 read -r response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo "启动 Tunnel..."
-    ./start_tunnel.sh
+    # 使用正确的命令格式
+    cloudflared tunnel --config ~/.cloudflared/config-$TUNNEL_NAME.yml run $TUNNEL_NAME
 else
     echo -e "${GREEN}可以使用以下命令启动 Tunnel:${NC}"
     echo "./start_tunnel.sh"
+    echo "或者直接运行:"
+    echo "cloudflared tunnel --config ~/.cloudflared/config-$TUNNEL_NAME.yml run $TUNNEL_NAME"
 fi
 
 echo -e "${GREEN}配置和设置脚本执行完成!${NC}"
