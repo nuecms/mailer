@@ -31,7 +31,7 @@ export default defineConfig({
             { text: '直接发送模式', link: '/guides/direct-delivery' },
             { text: '高级功能', link: '/guides/advanced-features' },
             { text: 'DKIM 设置', link: '/guides/dkim-setup' },
-            { text: 'Cloudflare Tunnel', link: '/guides/cloudflare-tunnel' },
+            { text: '多提供商故障转移', link: '/guides/provider_failover' },
             { text: '性能优化', link: '/guides/optimization' },
             { text: '故障排查', link: '/guides/troubleshooting' }
           ]

@@ -1,3 +1,7 @@
+// This file is being deprecated and will be removed in future versions.
+// Cloudflare Tunnel doesn't support port 25 by default, making it unsuitable for SMTP traffic.
+// See: https://developers.cloudflare.com/cloudflare-one/faq/troubleshooting/#i-cannot-send-emails-on-port-25
+
 package main
 
 import (
@@ -7,36 +11,22 @@ import (
 	"net/http"
 )
 
-// EnableTunnelMode 更改配置以支持 Cloudflare Tunnel 模式
+// EnableTunnelMode is deprecated and will be removed in a future release
+// Cloudflare WARP client blocks outgoing SMTP traffic on port 25 by default
 func EnableTunnelMode() {
-	log.Println("启用 Cloudflare Tunnel 模式")
+	log.Println("警告: Cloudflare Tunnel 模式已被废弃")
+	log.Println("Cloudflare WARP 客户端默认会阻止端口 25 上的出站 SMTP 流量")
+	log.Println("详情请参阅 Cloudflare 文档: https://developers.cloudflare.com/cloudflare-one/faq/troubleshooting/#i-cannot-send-emails-on-port-25")
 	
-	// 添加一个简单的端点，用于检测 Tunnel 是否正常工作
-	http.HandleFunc("/tunnel-test", func(w http.ResponseWriter, r *http.Request) {
+	// Add an endpoint for consistency but discourage its use
+	http.HandleFunc("/tunnel-deprecated", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","message":"Tunnel is working"}`)
+		fmt.Fprintf(w, `{"status":"deprecated","message":"Cloudflare Tunnel mode is deprecated"}`)
 	})
-	
-	// 打印提醒信息
-	log.Println("重要: 在 Tunnel 模式下，您需要:")
-	log.Println("1. 配置 config.json，设置 security.allowLocalOnly: false")
-	log.Println("2. 确保设置了强密码（用于SMTP认证）")
-	log.Println("3. 在您的应用中使用完整的SMTP地址、端口和认证信息")
 }
 
-// IsTunnelRequest 检查请求是否来自 Cloudflare Tunnel
+// IsTunnelRequest is deprecated and will be removed in a future release
 func IsTunnelRequest(addr net.Addr) bool {
-	// 从地址获取IP
-	ipStr, _, _ := net.SplitHostPort(addr.String())
-	ip := net.ParseIP(ipStr)
-	
-	// Cloudflare Tunnel 请求通常来自本地回环地址
-	if ip != nil && ip.IsLoopback() {
-		return true
-	}
-	
-	// 也可以检查 Cloudflare 的 IP 范围
-	// 这里需要一个全面的 Cloudflare IP 范围列表
-	
+	// For backward compatibility, just return false
 	return false
 }

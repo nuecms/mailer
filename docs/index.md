@@ -26,8 +26,8 @@ features:
     title: 监控完善
     details: 内置健康检查和指标接口，轻松集成监控系统
   - icon: 🌐
-    title: 外部访问支持
-    details: 通过 Cloudflare Tunnel 实现安全的外部访问，无需公网 IP
+    title: 灵活连接
+    details: 支持多种连接方式，兼容各种邮件客户端和应用程序
 ---
 
 ## 什么是 Go Mail Server?
@@ -46,7 +46,7 @@ Go Mail Server 是一个轻量级的 SMTP 邮件发送服务，旨在为内部�
 - **监控支持**：提供健康检查和指标接口
 - **速率限制**：控制发送频率，防止滥用
 - **DKIM 签名**：提高邮件送达率和安全性
-- **外部访问**：通过 Cloudflare Tunnel 支持外部访问
+- **多提供商支持**：配置多个SMTP提供商实现自动故障转移
 
 ## 快速开始
 

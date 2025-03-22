@@ -12,10 +12,28 @@
   },
   
   "forwardSMTP": true,
-  "forwardHost": "smtp.example.com",
+  "forwardProviders": [
+    {
+      "host": "smtp.primary.com",
+      "port": 587,
+      "username": "user@primary.com",
+      "password": "password1",
+      "ssl": false,
+      "priority": 0
+    },
+    {
+      "host": "smtp.backup.com",
+      "port": 587,
+      "username": "user@backup.com",
+      "password": "password2",
+      "ssl": false,
+      "priority": 1
+    }
+  ],
+  "forwardHost": "",
   "forwardPort": 587,
-  "forwardUsername": "your-email@example.com",
-  "forwardPassword": "your-smtp-password",
+  "forwardUsername": "",
+  "forwardPassword": "",
   "forwardSSL": false,
   
   "dkim": {

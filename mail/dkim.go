@@ -180,8 +180,9 @@ func computeBodyHash(body []byte) string {
 func (s *DKIMSigner) createSignatureHeader(headers map[string]string, bodyHash string) string {
 	// 当前时间戳
 	now := time.Now().Unix()
-	// 生成随机标识符
-	randID := fmt.Sprintf("%d.%d", now, rand.Int())
+	
+	// 生成随机数的方法修正
+	// randomNum := time.Now().UnixNano() % 100000
 	
 	// 构建头部字段列表
 	var headerFields []string

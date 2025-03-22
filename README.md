@@ -10,13 +10,13 @@ Go Mail Server 是一个轻量级 SMTP 服务器，专为内部应用程序提�
 - **仅本地连接**：默认只接受来自本地的连接，增强安全性
 - **直接发送**：支持直接发送邮件到收件人邮件服务器，无需第三方SMTP
 - **邮件转发**：将邮件转发至外部 SMTP 服务器（如 Gmail、阿里云等）
+- **多提供商支持**：配置多个SMTP提供商实现自动故障转移
 - **批量处理**：支持批量邮件发送，自动分批处理大量收件人
 - **异步处理**：后台处理邮件发送，提高响应速度
 - **故障恢复**：自动保存失败邮件，定期重试
 - **监控支持**：提供健康检查和指标接口
 - **速率限制**：控制每个发件人的发送频率
 - **DKIM 支持**：可配置 DKIM 签名提高送达率
-- **外部访问**：通过 Cloudflare Tunnel 支持外部访问
 
 ## 快速开始
 
@@ -168,17 +168,6 @@ curl http://localhost:8025/metrics
 curl -X POST http://localhost:8025/admin/retry-failed
 ```
 
-## 外部访问设置
-
-Go Mail Server 默认只接受本地连接，若需要远程访问，我们推荐使用 Cloudflare Tunnel：
-
-```bash
-# 设置 Cloudflare Tunnel
-./setup_tunnel.sh
-```
-
-详细步骤请参考[Cloudflare Tunnel 部署指南](https://mailer.nuecms.com/guides/cloudflare-tunnel.html)。
-
 ## 文档
 
 完整文档请访问我们的[在线文档站点](https://mailer.nuecms.com/)，其中包含：
@@ -188,7 +177,6 @@ Go Mail Server 默认只接受本地连接，若需要远程访问，我们推�
 - [配置详解](https://mailer.nuecms.com/guides/configuration.html)
 - [高级功能](https://mailer.nuecms.com/guides/advanced-features.html)
 - [DKIM 配置](https://mailer.nuecms.com/guides/dkim-setup.html)
-- [Cloudflare Tunnel](https://mailer.nuecms.com/guides/cloudflare-tunnel.html)
 - [性能优化](https://mailer.nuecms.com/guides/optimization.html)
 - [故障排查](https://mailer.nuecms.com/guides/troubleshooting.html)
 
@@ -239,4 +227,3 @@ Go Mail Server 默认只接受本地连接，若需要远程访问，我们推�
 ## 致谢
 
 - [SMTPD](https://github.com/mhale/smtpd) - 提供 SMTP 服务器基础功能
-- [Cloudflare](https://www.cloudflare.com/) - 提供 Tunnel 和安全服务

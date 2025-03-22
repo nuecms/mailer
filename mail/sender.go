@@ -8,6 +8,7 @@ import (
 	"time"
 	"github.com/nuecms/mailer/config"
 	"github.com/nuecms/mailer/utils"
+	"sort"
 )
 
 // MailJob 表示一个待处理的邮件作业
@@ -46,7 +47,11 @@ func ProcessMail(cfg *config.Config, from string, to []string, data []byte) erro
 	}
 
 	// 尝试SMTP转发
-	if cfg.ForwardSMTP && cfg.ForwardHost != "" {
+	// 检查是否有配置转发提供商或传统的转发设置
+	hasForwardingConfig := (cfg.ForwardSMTP && len(cfg.ForwardProviders) > 0) || 
+						 (cfg.ForwardSMTP && cfg.ForwardHost != "")
+	
+	if hasForwardingConfig {
 		log.Printf("尝试通过SMTP转发邮件")
 		err := ForwardMail(cfg, from, to, data)
 		if err == nil {
@@ -243,59 +248,110 @@ func ForwardMail(cfg *config.Config, from string, to []string, data []byte) erro
 
 // ForwardMailBatch 实际执行邮件转发功能
 func ForwardMailBatch(cfg *config.Config, from string, to []string, data []byte) error {
-	// 如果没有配置，使用默认配置
-	var forwardHost, forwardUsername, forwardPassword string
-	var forwardPort int
-	var forwardSSL bool
-
+	// 首先确保配置被转换为多提供商格式
 	if cfg != nil {
-		forwardHost = cfg.ForwardHost
-		forwardPort = cfg.ForwardPort
-		forwardUsername = cfg.ForwardUsername
-		forwardPassword = cfg.ForwardPassword
-		forwardSSL = cfg.ForwardSSL
+		config.ConvertLegacyConfig(cfg)
+	}
+	
+	// 获取提供商列表
+	var providers []config.SMTPProvider
+	if cfg != nil && cfg.ForwardSMTP && len(cfg.ForwardProviders) > 0 {
+		providers = cfg.ForwardProviders
+	} else if cfg != nil && cfg.ForwardSMTP && cfg.ForwardHost != "" {
+		// 旧式配置兼容 (冗余检查)
+		providers = []config.SMTPProvider{
+			{
+				Host:     cfg.ForwardHost,
+				Port:     cfg.ForwardPort,
+				Username: cfg.ForwardUsername,
+				Password: cfg.ForwardPassword,
+				SSL:      cfg.ForwardSSL,
+			},
+		}
 	} else {
 		// 加载默认配置
 		defaultConfig, err := config.Load("config.json")
 		if err != nil {
 			return fmt.Errorf("无法加载默认配置: %v", err)
 		}
-		forwardHost = defaultConfig.ForwardHost
-		forwardPort = defaultConfig.ForwardPort
-		forwardUsername = defaultConfig.ForwardUsername
-		forwardPassword = defaultConfig.ForwardPassword
-		forwardSSL = defaultConfig.ForwardSSL
+		config.ConvertLegacyConfig(defaultConfig)
+		
+		// 确保默认配置也检查 forwardSMTP 标志
+		if !defaultConfig.ForwardSMTP {
+			return fmt.Errorf("SMTP转发功能已禁用，无法转发邮件")
+		}
+		
+		providers = defaultConfig.ForwardProviders
 	}
-
-	// 准备SMTP地址
-	addr := fmt.Sprintf("%s:%d", forwardHost, forwardPort)
-	log.Printf("连接到SMTP服务器: %s", addr)
-
-	// 显示详细的调试日志
-	if forwardUsername != "" {
-		log.Printf("使用认证信息: 用户名=%s", forwardUsername)
-	} else {
-		log.Printf("未配置转发认证信息")
+	
+	// 如果没有可用的提供商，返回错误
+	if len(providers) == 0 {
+		return fmt.Errorf("未配置SMTP提供商，无法转发邮件")
 	}
+	
+	// 按照优先级排序提供商
+	sort.Slice(providers, func(i, j int) bool {
+		// 如果优先级相同，保持原有顺序
+		if providers[i].Priority == providers[j].Priority {
+			return i < j
+		}
+		return providers[i].Priority < providers[j].Priority
+	})
+	
+	// 存储错误以便返回最后一个错误
+	var lastError error
+	
+	// 尝试每个提供商
+	for i, provider := range providers {
+		log.Printf("尝试使用SMTP提供商 #%d: %s", i+1, provider.Host)
+		
+		// 准备SMTP地址
+		addr := fmt.Sprintf("%s:%d", provider.Host, provider.Port)
+		log.Printf("连接到SMTP服务器: %s", addr)
+		
+		// 显示详细的调试日志
+		if provider.Username != "" {
+			log.Printf("使用认证信息: 用户名=%s", provider.Username)
+		} else {
+			log.Printf("未配置认证信息")
+		}
+		
+		// 显示更多邮件信息
+		dataLen := len(data)
+		previewLen := utils.Min(200, dataLen)
+		log.Printf("邮件头部预览: %s", string(data[:previewLen]))
+		
+		// 用当前提供商尝试发送
+		err := trySendWithProvider(provider, from, to, data)
+		if err == nil {
+			// 成功发送
+			log.Printf("成功使用提供商 %s 转发邮件给 %v", provider.Host, utils.SummarizeRecipients(to))
+			return nil
+		}
+		
+		// 记录错误并尝试下一个提供商
+		lastError = fmt.Errorf("提供商 %s 发送失败: %v", provider.Host, err)
+		log.Printf("使用提供商 %s 发送失败: %v, 尝试下一个提供商", provider.Host, err)
+	}
+	
+	// 所有提供商都失败
+	return fmt.Errorf("所有SMTP提供商均发送失败，最后错误: %v", lastError)
+}
 
-	// 显示更多邮件信息
-	dataLen := len(data)
-	previewLen := utils.Min(200, dataLen)
-	log.Printf("邮件头部预览: %s", string(data[:previewLen]))
-
+// trySendWithProvider 使用指定的SMTP提供商尝试发送邮件
+func trySendWithProvider(provider config.SMTPProvider, from string, to []string, data []byte) error {
 	// 增加指数退避重试机制
 	retryCount := 3
 	backoff := time.Second
-
-	// 重构代码以避免使用goto跳过变量声明
+	
+	// 重试循环
 	for i := 0; i < retryCount; i++ {
-		err := tryToSendMail(forwardHost, forwardPort, forwardUsername, forwardPassword, forwardSSL, addr, from, to, data)
+		err := tryToSendMailWithProvider(provider, from, to, data)
 		if err == nil {
 			// 成功发送
-			log.Printf("成功转发邮件给 %v", utils.SummarizeRecipients(to))
 			return nil
 		}
-
+		
 		// 连接错误可能是暂时性的，尝试重试
 		if i < retryCount-1 {
 			log.Printf("尝试发送失败 (%d/%d)，将在 %v 后重试: %v", 
@@ -307,23 +363,24 @@ func ForwardMailBatch(cfg *config.Config, from string, to []string, data []byte)
 			return fmt.Errorf("多次尝试后发送失败: %v", err)
 		}
 	}
-
+	
 	// 不应该到达这里，但为了编译器不报错
 	return fmt.Errorf("发送失败")
 }
 
-// tryToSendMail 尝试发送一封邮件，封装了单次发送的逻辑
-func tryToSendMail(forwardHost string, forwardPort int, forwardUsername, forwardPassword string, 
-	forwardSSL bool, addr string, from string, to []string, data []byte) error {
-	
+// tryToSendMailWithProvider 基于提供商配置尝试发送邮件
+func tryToSendMailWithProvider(provider config.SMTPProvider, from string, to []string, data []byte) error {
 	// 创建SMTP客户端连接
 	var client *smtp.Client
 	var err error
-
-	if forwardSSL {
+	
+	// 准备SMTP地址
+	addr := fmt.Sprintf("%s:%d", provider.Host, provider.Port)
+	
+	if provider.SSL {
 		// 使用TLS连接
 		tlsConfig := &tls.Config{
-			ServerName: forwardHost,
+			ServerName: provider.Host,
 			// 在生产环境中应该设置为true
 			InsecureSkipVerify: false,
 		}
@@ -332,7 +389,7 @@ func tryToSendMail(forwardHost string, forwardPort int, forwardUsername, forward
 			return fmt.Errorf("无法创建TLS连接: %v", err)
 		}
 
-		client, err = smtp.NewClient(conn, forwardHost)
+		client, err = smtp.NewClient(conn, provider.Host)
 		if err != nil {
 			return fmt.Errorf("无法创建SMTP客户端: %v", err)
 		}
@@ -345,7 +402,7 @@ func tryToSendMail(forwardHost string, forwardPort int, forwardUsername, forward
 
 		// 如果服务器支持，启用TLS
 		if ok, _ := client.Extension("STARTTLS"); ok {
-			tlsConfig := &tls.Config{ServerName: forwardHost}
+			tlsConfig := &tls.Config{ServerName: provider.Host}
 			if err = client.StartTLS(tlsConfig); err != nil {
 				log.Printf("启用TLS失败: %v", err)
 				// 继续，不要返回错误
@@ -355,8 +412,8 @@ func tryToSendMail(forwardHost string, forwardPort int, forwardUsername, forward
 	defer client.Close()
 
 	// 认证
-	if forwardUsername != "" && forwardPassword != "" {
-		auth := smtp.PlainAuth("", forwardUsername, forwardPassword, forwardHost)
+	if provider.Username != "" && provider.Password != "" {
+		auth := smtp.PlainAuth("", provider.Username, provider.Password, provider.Host)
 		if err = client.Auth(auth); err != nil {
 			return fmt.Errorf("SMTP认证失败: %v", err)
 		}

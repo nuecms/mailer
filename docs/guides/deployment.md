@@ -12,7 +12,6 @@
     - [前置检查](#前置检查)
     - [服务器直接部署](#服务器直接部署)
     - [Docker 容器部署](#docker-容器部署)
-    - [Cloudflare Tunnel 部署](#cloudflare-tunnel-部署)
   - [配置说明](#配置说明)
   - [高可用部署](#高可用部署)
     - [多实例部署](#多实例部署)
@@ -197,37 +196,6 @@ go build -o mailserver
      mailer:latest
    ```
 
-### Cloudflare Tunnel 部署
-
-适合需要从外部访问但没有公网 IP 的环境：
-
-1. **设置 Cloudflare Tunnel**
-
-   参考我们的 [Cloudflare Tunnel 设置指南](/guides/cloudflare-tunnel) 进行详细配置。
-
-2. **配置邮件服务**
-
-   ```json
-   {
-     "smtpHost": "127.0.0.1",
-     "smtpPort": 25,
-     "security": {
-       "allowLocalOnly": false,  // 允许来自 Cloudflare Tunnel 的连接
-       "requireAuth": true       // 但仍然需要认证
-     },
-     // ...其他标准配置
-   }
-   ```
-
-3. **在应用中使用**
-
-   ```
-   SMTP 服务器: smtp.yourdomain.com (你的 Cloudflare Tunnel 域名)
-   端口: 25
-   用户名: 你的配置用户名
-   密码: 你的配置密码
-   ```
-
 ## 配置说明
 
 主要配置项说明：
@@ -315,31 +283,32 @@ go build -o mailserver
 
 ### 多提供商故障转移
 
-配置多个 SMTP 服务提供商，当主要提供商不可用时自动切换：
+Go Mail Server 支持配置多个 SMTP 服务提供商，当主要提供商不可用时自动切换：
 
 ```json
 {
-  "forwardSMTP": true,
   "forwardProviders": [
     {
       "host": "smtp.primary.com",
       "port": 587,
       "username": "user@primary.com",
       "password": "password1",
-      "ssl": false
+      "ssl": false,
+      "priority": 0
     },
     {
       "host": "smtp.backup.com",
       "port": 587,
       "username": "user@backup.com",
       "password": "password2",
-      "ssl": false
+      "ssl": false,
+      "priority": 1
     }
   ]
 }
 ```
 
-*注意：多提供商功能尚未实现，这是规划中的功能。*
+这种配置可以显著提高系统的可靠性，确保即使某个 SMTP 服务出现问题，邮件仍然能够正常发送。详细配置请参考[多 SMTP 提供商与故障转移](/guides/provider_failover)指南。
 
 ## 安全加固
 
