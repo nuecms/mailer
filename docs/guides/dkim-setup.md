@@ -19,8 +19,8 @@ DKIM 使用公钥加密技术：
 
 ```bash
 # 下载并运行配置脚本
-chmod +x setup_tunnel.sh
-./setup_tunnel.sh
+chmod +x setup_mailer.sh
+./setup_mailer.sh
 ```
 
 该脚本会：

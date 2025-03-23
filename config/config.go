@@ -211,7 +211,7 @@ func CheckDKIMConfig(config *Config) {
 	// 检查私钥文件是否存在
 	if _, err := os.Stat(config.DKIM.PrivateKeyPath); os.IsNotExist(err) {
 		log.Printf("警告: DKIM私钥文件不存在: %s", config.DKIM.PrivateKeyPath)
-		log.Printf("您可以使用 setup_tunnel.sh 脚本生成DKIM密钥，或者手动创建密钥")
+		log.Printf("您可以使用 setup_mailer.sh 脚本生成DKIM密钥，或者手动创建密钥")
 	}
 }
 
